@@ -294,10 +294,12 @@ export default function KitchenPage() {
         id: uuidv4(),
         order_id: orderId,
         item_id: item.id,
+        item_name_en: item.name_en,
+        item_name_ar: item.name_ar || '',
         quantity: item.quantity,
         unit_price: item.base_price,
         total_price: item.base_price * item.quantity,
-        modifiers: [],
+        modifiers: null,
         special_instructions: null,
         sort_order: index
       }))
