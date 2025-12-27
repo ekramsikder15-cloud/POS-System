@@ -325,16 +325,60 @@ export default function POSPage() {
   const completeOrder = async () => {
     try {
       const orderNumber = generateOrderNumber()
+      const orderId = uuidv4()
+      
+      // Create order with correct schema
       const orderData = {
-        id: uuidv4(),
+        id: orderId,
         tenant_id: TENANT_ID,
         branch_id: BRANCH_ID,
         order_number: orderNumber,
         channel: 'pos',
         order_type: orderType,
         status: 'pending',
+        payment_status: 'paid',
         customer_name: customerName || null,
         customer_phone: customerPhone || null,
+        subtotal: subtotal,
+        tax_amount: tax,
+        service_charge: serviceCharge,
+        total_amount: total,
+        user_id: user.id,
+        notes: paymentMethod === 'cash' 
+          ? `Cash: ${(parseFloat(amountReceived) || total).toFixed(3)} KWD, Change: ${Math.max(0, (parseFloat(amountReceived) || 0) - total).toFixed(3)} KWD`
+          : `Card payment`
+      }
+      
+      const { error: orderError } = await supabase.from('orders').insert(orderData)
+      if (orderError) throw orderError
+      
+      // Create order items
+      const orderItems = cart.map((c, index) => ({
+        id: uuidv4(),
+        order_id: orderId,
+        item_id: c.item.id,
+        quantity: c.quantity,
+        unit_price: c.item.base_price,
+        total_price: c.totalPrice,
+        modifiers: c.modifiers.map(m => ({
+          id: m.id,
+          name_en: m.name_en,
+          name_ar: m.name_ar,
+          price: m.price
+        })),
+        special_instructions: c.specialInstructions || null,
+        sort_order: index
+      }))
+      
+      const { error: itemsError } = await supabase.from('order_items').insert(orderItems)
+      if (itemsError) {
+        console.error('Order items error:', itemsError)
+        // Continue anyway - order is created
+      }
+      
+      // Build local order data for display
+      const displayOrder = {
+        ...orderData,
         items: cart.map(c => ({
           item_id: c.item.id,
           name_en: c.item.name_en,
@@ -342,33 +386,19 @@ export default function POSPage() {
           quantity: c.quantity,
           unit_price: c.unitPrice,
           total_price: c.totalPrice,
-          modifiers: c.modifiers.map(m => ({
-            id: m.id,
-            name_en: m.name_en,
-            name_ar: m.name_ar,
-            price: m.price
-          })),
+          modifiers: c.modifiers,
           special_instructions: c.specialInstructions
         })),
-        subtotal,
-        tax,
-        service_charge: serviceCharge,
-        total,
+        total: total,
         payment_method: paymentMethod,
-        payment_status: 'paid',
         amount_received: paymentMethod === 'cash' ? parseFloat(amountReceived) || total : total,
         change_amount: paymentMethod === 'cash' ? Math.max(0, (parseFloat(amountReceived) || 0) - total) : 0,
-        cashier_id: user.id,
         cashier_name: user.name,
         created_at: new Date().toISOString()
       }
       
-      const { error } = await supabase.from('orders').insert(orderData)
-      
-      if (error) throw error
-      
-      setLastOrder(orderData)
-      setOrderHistory(prev => [orderData, ...prev])
+      setLastOrder(displayOrder)
+      setOrderHistory(prev => [displayOrder, ...prev])
       setPaymentModalOpen(false)
       setReceiptModalOpen(true)
       clearOrder()
