@@ -357,15 +357,17 @@ export default function POSPage() {
         id: uuidv4(),
         order_id: orderId,
         item_id: c.item.id,
+        item_name_en: c.item.name_en,
+        item_name_ar: c.item.name_ar || '',
         quantity: c.quantity,
         unit_price: c.item.base_price,
         total_price: c.totalPrice,
-        modifiers: c.modifiers.map(m => ({
+        modifiers: c.modifiers.length > 0 ? c.modifiers.map(m => ({
           id: m.id,
           name_en: m.name_en,
           name_ar: m.name_ar,
           price: m.price
-        })),
+        })) : null,
         special_instructions: c.specialInstructions || null,
         sort_order: index
       }))
