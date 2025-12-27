@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase, TENANT_ID, BRANCH_ID } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -10,11 +10,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { Slider } from '@/components/ui/slider'
 import { toast } from 'sonner'
 import { v4 as uuidv4 } from 'uuid'
 import {
   ChefHat, Clock, Check, AlertCircle, RefreshCw, LogOut, User,
-  UtensilsCrossed, Package, Bike, Volume2, VolumeX, Plus, Search, X
+  UtensilsCrossed, Package, Bike, Volume2, VolumeX, Plus, Search, X,
+  Settings, Bell, Play
 } from 'lucide-react'
 
 // Order types
@@ -22,6 +24,26 @@ const ORDER_TYPES = {
   qsr: { label: 'Dine In', icon: UtensilsCrossed, color: 'bg-blue-100 text-blue-700' },
   takeaway: { label: 'Takeaway', icon: Package, color: 'bg-purple-100 text-purple-700' },
   delivery: { label: 'Delivery', icon: Bike, color: 'bg-green-100 text-green-700' }
+}
+
+// Notification sounds
+const NOTIFICATION_SOUNDS = [
+  { id: 'bell', name: 'Bell', description: 'Classic bell sound' },
+  { id: 'chime', name: 'Chime', description: 'Soft chime notification' },
+  { id: 'alert', name: 'Alert', description: 'Urgent alert tone' },
+  { id: 'ding', name: 'Ding', description: 'Simple ding sound' }
+]
+
+// Generate sound data URLs (embedded sounds for reliability)
+const generateSoundDataUrl = (type) => {
+  // These are simple synthesized sounds encoded as base64 WAV
+  const sounds = {
+    bell: 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdH2DgYF7c2tyeoCEhYGDbXN0gYWDgHRsbXaCh4WAeG5ucHyEh4Z+cmtpcoCIiIZ8cGpocX+IiYd9cGlnb36Ii4l+cWhmbX2IjIp+b2Zla3yIjYt+bmVkaXqHjYx+bGRjZ3iFjI2AbGJhZXWCi46CamBfY3KAio+EaV5dYW9+iJCHaFxbX2x7hpCJaFtZXWp4hI+LaldXWmZ0gY2OjGlUVVdib36KkI1sU1JTXmp5h5KQcFBQUVlkc4WSkXNPTU9VYG5/kZN2TUxNUlxpcouVd0tJSk5XZXOKS1dqfpKKfHRpZ2p0f3+Af3x1cXN0dnqAfoBzdHZzcnN0d3p8fH56d3Z1dnl6fX1+enZ1dnl7fn9/e3Z1d3p8f4F/e3Z2eHt+gYKAe3Z2eHt+goOBfHd3eXx/g4SBfHd3eXyAg4WCfXh4en6BhIaDfnh5e36ChYeEf3l5e36ChYeEf3p6fH+DhoiGgXp6fH+DhoiGgXt7fYCEh4mHgnt7fYCEh4mHgnt7fYCEh4mHgnt7fYCEh4mHgnt7fYCEh4mHgXt7fYCEh4mHgXt7fYCEh4mHgXt7fYCEh4mHgXt7fYCEh4mHgXt7fYCEh4mHgXt7fYCEh4mHgXt7fYCEh4mHgXt7fYCEh4mHgXt7fYCEh4mHgXt7fYCEh4mHgXt7fYCEh4mHgQ==',
+    chime: 'data:audio/wav;base64,UklGRl4FAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YToFAAB/f39/f39/f4CAgICAgICBgYGBgYKCgoKCg4ODg4OEhISEhIWFhYWFhoaGhoaHh4eHh4iIiIiIiYmJiYmKioqKiouLi4uLjIyMjIyNjY2NjY6Ojo6Oj4+Pj4+QkJCQkJGRkZGRkpKSkpKTk5OTk5SUlJSUlZWVlZWWlpaWlpeXl5eXmJiYmJiZmZmZmZqampqam5ubm5ucnJycnJ2dnZ2dnp6enp6fn5+fn6CgoKCgoaGhoaGioqKioqOjo6OjpKSkpKSlpaWlpaampqamq6urq6ysrKytra2trq6urq+vr6+wsLCwsbGxsbKysrKzs7OztLS0tLW1tbW2tra2t7e3t7i4uLi5ubm5urq6uru7u7u8vLy8vb29vb6+vr6/v7+/wMDAwMHBwcHCwsLCw8PDw8TExMTFxcXFxsbGxsfHx8fIyMjIycnJycrKysrLy8vLzMzMzM3Nzc3Ozs7Oz8/Pz9DQ0NDR0dHR0tLS0tPT09PU1NTU1dXV1dbW1tbX19fX2NjY2NnZ2dna2tra29vb29zc3Nzd3d3d3t7e3t/f39/g4ODg4eHh4eLi4uLj4+Pj5OTk5OXl5eXm5ubm5+fn5+jo6Ojp6enp6urq6uvr6+vs7Ozs7e3t7e7u7u7v7+/v8PDw8PHx8fHy8vLy8/Pz8/T09PT19fX19vb29vf39/f4+Pj4+fn5+fr6+vr7+/v7/Pz8/P39/f3+/v7+////fw==',
+    alert: 'data:audio/wav;base64,UklGRjIGAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQ4GAAB/f39/f4B/gH+AgICAgIGAgYGBgYGCgoKCgoODg4ODhISEhISFhYWFhoaGhoeHh4eIiIiIiYmJiYqKioqLi4uLjIyMjI2NjY2Ojo6Oj4+Pj5CQkJCRkZGRkpKSkpOTk5OUlJSUlZWVlZaWlpaXl5eXmJiYmJmZmZmampqam5ubm5ycnJydnZ2dnp6enp+fn5+goKCgoaGhoaKioqKjo6OjpKSkpKWlpaWmpqamq6urq6ysrKytra2trq6urq+vr6+wsLCwsbGxsbKysrKzs7OztLS0tLW1tbW2tra2t7e3t7i4uLi5ubm5urq6uru7u7u8vLy8vb29vb6+vr6/v7+/wMDAwMHBwcHCwsLCw8PDw8TExMTFxcXFxsbGxsfHx8fIyMjIycnJycrKysrLy8vLzMzMzM3Nzc3Ozs7Oz8/Pz9DQ0NDR0dHR0tLS0tPT09PU1NTU1dXV1dbW1tbX19fX2NjY2NnZ2dna2tra29vb29zc3Nzd3d3d3t7e3t/f39/g4ODg4eHh4eLi4uLj4+Pj5OTk5OXl5eXm5ubm5+fn5+jo6Ojp6enp6urq6uvr6+vs7Ozs7e3t7e7u7u7v7+/v8PDw8PHx8fHy8vLy8/Pz8/T09PT19fX19vb29vf39/f4+Pj4+fn5+fr6+vr7+/v7/Pz8/P39/f3+/v7+////fw==',
+    ding: 'data:audio/wav;base64,UklGRnoEAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YVYEAACAf4B/gH+Af4CAgICAgICBgYGBgYGCgoKCg4ODg4OEhISEhYWFhYaGhoaHh4eHiIiIiImJiYmKioqKi4uLi4yMjIyNjY2Njo6Ojo+Pj4+QkJCQkZGRkZKSkpKTk5OTlJSUlJWVlZWWlpaWl5eXl5iYmJiZmZmZmpqampubm5ucnJycnZ2dnZ6enp6fn5+foKCgoKGhoaGioqKio6Ojo6SkpKSlpaWlpqampqenp6eoqKioqampqaqqqqp/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/fw=='
+  }
+  return sounds[type] || sounds.bell
 }
 
 // Format price in KWD (3 decimals)
@@ -65,9 +87,14 @@ export default function KitchenPage() {
   const [orders, setOrders] = useState([])
   const [categories, setCategories] = useState([])
   const [items, setItems] = useState([])
-  const [audioEnabled, setAudioEnabled] = useState(true)
   const [lastOrderCount, setLastOrderCount] = useState(0)
   const audioRef = useRef(null)
+  
+  // Sound settings
+  const [soundSettingsOpen, setSoundSettingsOpen] = useState(false)
+  const [audioEnabled, setAudioEnabled] = useState(true)
+  const [selectedSound, setSelectedSound] = useState('bell')
+  const [soundVolume, setSoundVolume] = useState([70])
   
   // New order modal state
   const [newOrderModalOpen, setNewOrderModalOpen] = useState(false)
@@ -77,11 +104,35 @@ export default function KitchenPage() {
   const [customerName, setCustomerName] = useState('')
   const [specialInstructions, setSpecialInstructions] = useState('')
   
+  // Load sound settings from localStorage
+  useEffect(() => {
+    const savedSettings = localStorage.getItem('kitchen_sound_settings')
+    if (savedSettings) {
+      const settings = JSON.parse(savedSettings)
+      setAudioEnabled(settings.enabled ?? true)
+      setSelectedSound(settings.sound ?? 'bell')
+      setSoundVolume([settings.volume ?? 70])
+    }
+  }, [])
+  
+  // Save sound settings to localStorage
+  const saveSoundSettings = () => {
+    const settings = {
+      enabled: audioEnabled,
+      sound: selectedSound,
+      volume: soundVolume[0]
+    }
+    localStorage.setItem('kitchen_sound_settings', JSON.stringify(settings))
+    setSoundSettingsOpen(false)
+    toast.success('Sound settings saved')
+  }
+  
   // Check authentication
   useEffect(() => {
     const storedUser = localStorage.getItem('pos_user')
     if (storedUser) {
-      setUser(JSON.parse(storedUser))
+      const userData = JSON.parse(storedUser)
+      setUser(userData)
     } else {
       router.push('/pos/login')
     }
@@ -89,15 +140,17 @@ export default function KitchenPage() {
   
   // Load orders
   const loadOrders = async () => {
+    if (!user) return
+    
     try {
       const today = new Date().toISOString().slice(0, 10)
       
-      // Load orders
+      // Load orders for user's tenant and branch
       const { data: ordersData, error } = await supabase
         .from('orders')
         .select('*')
-        .eq('tenant_id', TENANT_ID)
-        .eq('branch_id', BRANCH_ID)
+        .eq('tenant_id', user.tenant_id)
+        .eq('branch_id', user.branch_id)
         .gte('created_at', today)
         .in('status', ['pending', 'preparing'])
         .order('created_at', { ascending: true })
@@ -142,10 +195,12 @@ export default function KitchenPage() {
   
   // Load menu data
   const loadMenuData = async () => {
+    if (!user) return
+    
     try {
       const [catsRes, itemsRes] = await Promise.all([
-        supabase.from('categories').select('*').eq('tenant_id', TENANT_ID).eq('status', 'active').order('sort_order'),
-        supabase.from('items').select('*').eq('tenant_id', TENANT_ID).eq('status', 'active').order('sort_order')
+        supabase.from('categories').select('*').eq('tenant_id', user.tenant_id).eq('status', 'active').order('sort_order'),
+        supabase.from('items').select('*').eq('tenant_id', user.tenant_id).eq('status', 'active').order('sort_order')
       ])
       
       setCategories(catsRes.data || [])
@@ -158,6 +213,18 @@ export default function KitchenPage() {
   // Play notification sound
   const playNotificationSound = () => {
     if (audioRef.current) {
+      audioRef.current.src = generateSoundDataUrl(selectedSound)
+      audioRef.current.volume = soundVolume[0] / 100
+      audioRef.current.currentTime = 0
+      audioRef.current.play().catch(e => console.log('Audio play failed:', e))
+    }
+  }
+  
+  // Test sound
+  const testSound = (soundId) => {
+    if (audioRef.current) {
+      audioRef.current.src = generateSoundDataUrl(soundId || selectedSound)
+      audioRef.current.volume = soundVolume[0] / 100
       audioRef.current.currentTime = 0
       audioRef.current.play().catch(e => console.log('Audio play failed:', e))
     }
@@ -178,7 +245,7 @@ export default function KitchenPage() {
             event: '*',
             schema: 'public',
             table: 'orders',
-            filter: `tenant_id=eq.${TENANT_ID}`
+            filter: `tenant_id=eq.${user.tenant_id}`
           },
           (payload) => {
             console.log('Order change:', payload)
@@ -263,8 +330,8 @@ export default function KitchenPage() {
       // Create order with correct schema
       const orderData = {
         id: orderId,
-        tenant_id: TENANT_ID,
-        branch_id: BRANCH_ID,
+        tenant_id: user.tenant_id,
+        branch_id: user.branch_id,
         order_number: generateOrderNumber(),
         channel: 'pos',
         order_type: orderType,
@@ -342,9 +409,7 @@ export default function KitchenPage() {
   return (
     <div className="min-h-screen bg-[#f5f7fa] flex flex-col">
       {/* Audio element for notifications */}
-      <audio ref={audioRef} preload="auto">
-        <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdH2DgYF7c2tyeoCEhYGDbXN0gYWDgHRsbXaCh4WAeG5ucHyEh4Z+cmtpcoCIiIZ8cGpocX+IiYd9cGlnb36Ii4l+cWhmbX2IjIp+b2Zla3yIjYt+bmVkaXqHjYx+bGRjZ3iFjI2AbGJhZXWCi46CamBfY3KAio+EaV5dYW9+iJCHaFxbX2x7hpCJaFtZXWp4hI+LaldXWmZ0gY2OjGlUVVdib36KkI1sU1JTXmp5h5KQcFBQUVlkc4WSkXNPTU9VYG5/kZN2TUxNUlxpcouVd0tJSk5XZXOKS1dqfpKKfHRpZ2p0f3+Af3x1cXN0dnqAfoBzdHZzcnN0d3p8fH56d3Z1dnl6fX1+enZ1dnl7fn9/e3Z1d3p8f4F/e3Z2eHt+gYKAe3Z2eHt+goOBfHd3eXx/g4SBfHd3eXyAg4WCfXh4en6BhIaDfnh5e36ChYeEf3l5e36ChYeEf3p6fH+DhoiGgXp6fH+DhoiGgXt7fYCEh4mHgnt7fYCEh4mHgnt7fYCEh4mHgnt7fYCEh4mHgnt7fYCEh4mHgXt7fYCEh4mHgXt7fYCEh4mHgXt7fYCEh4mHgXt7fYCEh4mHgXt7fYCEh4mHgXt7fYCEh4mHgXt7fYCEh4mHgXt7fYCEh4mHgXt7fYCEh4mHgXt7fYCEh4mHgXt7fYCEh4mHgXt7fYCEh4mHgXt7fYCEh4mHgXt7fYCEh4mHgQ==" type="audio/wav" />
-      </audio>
+      <audio ref={audioRef} preload="auto" />
       
       {/* Header */}
       <header className="bg-[#1e3a5f] text-white px-6 py-4 flex items-center justify-between shadow-lg">
@@ -352,16 +417,16 @@ export default function KitchenPage() {
           <ChefHat className="w-8 h-8 text-[#d4af37]" />
           <div>
             <h1 className="text-xl font-bold">Kitchen Display</h1>
-            <p className="text-sm text-[#a8c5e6]">RIWA POS - Bam Burgers</p>
+            <p className="text-sm text-[#a8c5e6]">{user.tenant?.name || 'RIWA POS'} - {user.branch?.name || ''}</p>
           </div>
         </div>
         
         <div className="flex items-center gap-4">
-          {/* Audio Toggle */}
+          {/* Sound Settings Button */}
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setAudioEnabled(!audioEnabled)}
+            onClick={() => setSoundSettingsOpen(true)}
             className={`text-white hover:bg-[#2a4a6f] ${!audioEnabled && 'opacity-50'}`}
           >
             {audioEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
@@ -587,6 +652,102 @@ export default function KitchenPage() {
           </div>
         </div>
       </div>
+      
+      {/* Sound Settings Modal */}
+      <Dialog open={soundSettingsOpen} onOpenChange={setSoundSettingsOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[#1e3a5f] flex items-center gap-2">
+              <Bell className="w-5 h-5" />
+              Notification Sound Settings
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-6">
+            {/* Enable/Disable Toggle */}
+            <div className="flex items-center justify-between p-3 bg-[#f5f7fa] rounded-lg">
+              <div>
+                <div className="font-medium text-[#1e3a5f]">Sound Notifications</div>
+                <div className="text-sm text-gray-500">Play sound for new orders</div>
+              </div>
+              <Button
+                variant={audioEnabled ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setAudioEnabled(!audioEnabled)}
+                className={audioEnabled ? 'bg-[#d4af37] text-[#1e3a5f]' : ''}
+              >
+                {audioEnabled ? 'ON' : 'OFF'}
+              </Button>
+            </div>
+            
+            {/* Sound Selection */}
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-3 block">Notification Sound</label>
+              <div className="space-y-2">
+                {NOTIFICATION_SOUNDS.map(sound => (
+                  <div
+                    key={sound.id}
+                    className={`sound-option ${selectedSound === sound.id ? 'selected' : ''}`}
+                    onClick={() => setSelectedSound(sound.id)}
+                  >
+                    <div>
+                      <div className="font-medium text-[#1e3a5f]">{sound.name}</div>
+                      <div className="text-sm text-gray-500">{sound.description}</div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        testSound(sound.id)
+                      }}
+                    >
+                      <Play className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {/* Volume Slider */}
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-3 block">
+                Volume: {soundVolume[0]}%
+              </label>
+              <Slider
+                value={soundVolume}
+                onValueChange={setSoundVolume}
+                max={100}
+                min={10}
+                step={10}
+                className="w-full"
+              />
+            </div>
+            
+            {/* Test Button */}
+            <Button
+              variant="outline"
+              className="w-full border-[#a8c5e6]"
+              onClick={() => testSound()}
+            >
+              <Volume2 className="w-4 h-4 mr-2" />
+              Test Current Sound
+            </Button>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSoundSettingsOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-[#d4af37] hover:bg-[#c9a030] text-[#1e3a5f]"
+              onClick={saveSoundSettings}
+            >
+              Save Settings
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       
       {/* New Order Modal */}
       <Dialog open={newOrderModalOpen} onOpenChange={setNewOrderModalOpen}>
