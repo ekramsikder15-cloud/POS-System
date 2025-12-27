@@ -283,7 +283,7 @@ export default function KitchenPage() {
       if (orderError) throw orderError
       
       // Create order items
-      const orderItems = selectedItems.map((item, index) => ({
+      const orderItems = selectedItems.map((item) => ({
         id: uuidv4(),
         order_id: orderId,
         item_id: item.id,
@@ -291,10 +291,7 @@ export default function KitchenPage() {
         item_name_ar: item.name_ar || '',
         quantity: item.quantity,
         unit_price: item.base_price,
-        total_price: item.base_price * item.quantity,
-        modifiers: null,
-        special_instructions: null,
-        sort_order: index
+        total_price: item.base_price * item.quantity
       }))
       
       const { error: itemsError } = await supabase.from('order_items').insert(orderItems)
