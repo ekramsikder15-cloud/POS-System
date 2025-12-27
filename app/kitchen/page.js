@@ -265,41 +265,47 @@ export default function KitchenPage() {
     
     try {
       const total = selectedItems.reduce((sum, item) => sum + (item.base_price * item.quantity), 0)
+      const orderId = uuidv4()
       
+      // Create order with correct schema
       const orderData = {
-        id: uuidv4(),
+        id: orderId,
         tenant_id: TENANT_ID,
         branch_id: BRANCH_ID,
         order_number: generateOrderNumber(),
         channel: 'pos',
         order_type: orderType,
         status: 'pending',
-        customer_name: customerName || null,
-        items: selectedItems.map(item => ({
-          item_id: item.id,
-          name_en: item.name_en,
-          name_ar: item.name_ar,
-          quantity: item.quantity,
-          unit_price: item.base_price,
-          total_price: item.base_price * item.quantity,
-          modifiers: [],
-          special_instructions: ''
-        })),
-        subtotal: total,
-        tax: 0,
-        service_charge: 0,
-        total: total,
-        payment_method: 'cash',
         payment_status: 'paid',
-        special_instructions: specialInstructions || null,
-        cashier_id: user.id,
-        cashier_name: user.name,
-        created_at: new Date().toISOString()
+        customer_name: customerName || null,
+        subtotal: total,
+        tax_amount: 0,
+        service_charge: 0,
+        total_amount: total,
+        user_id: user.id,
+        notes: specialInstructions || null
       }
       
-      const { error } = await supabase.from('orders').insert(orderData)
+      const { error: orderError } = await supabase.from('orders').insert(orderData)
+      if (orderError) throw orderError
       
-      if (error) throw error
+      // Create order items
+      const orderItems = selectedItems.map((item, index) => ({
+        id: uuidv4(),
+        order_id: orderId,
+        item_id: item.id,
+        quantity: item.quantity,
+        unit_price: item.base_price,
+        total_price: item.base_price * item.quantity,
+        modifiers: [],
+        special_instructions: null,
+        sort_order: index
+      }))
+      
+      const { error: itemsError } = await supabase.from('order_items').insert(orderItems)
+      if (itemsError) {
+        console.error('Order items error:', itemsError)
+      }
       
       toast.success('Order created successfully!')
       setNewOrderModalOpen(false)
