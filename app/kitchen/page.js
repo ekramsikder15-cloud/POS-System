@@ -561,15 +561,10 @@ export default function KitchenPage() {
                                 {item.quantity}
                               </span>
                               <div className="flex-1">
-                                <div className="font-medium text-[#1e3a5f]">{item.name_en}</div>
-                                {item.modifiers?.length > 0 && (
-                                  <div className="text-sm text-gray-500">
-                                    {item.modifiers.map(m => m.name_en).join(', ')}
-                                  </div>
-                                )}
-                                {item.special_instructions && (
+                                <div className="font-medium text-[#1e3a5f]">{item.name_en || item.item_name_en}</div>
+                                {item.notes && (
                                   <div className="text-sm text-[#d4af37] font-medium">
-                                    ⚠ {item.special_instructions}
+                                    ⚠ {item.notes}
                                   </div>
                                 )}
                               </div>
