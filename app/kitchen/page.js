@@ -109,14 +109,7 @@ export default function KitchenPage() {
         const orderIds = ordersData.map(o => o.id)
         const { data: orderItemsData } = await supabase
           .from('order_items')
-          .select(`
-            *,
-            items:item_id (
-              id,
-              name_en,
-              name_ar
-            )
-          `)
+          .select('*')
           .in('order_id', orderIds)
         
         // Merge items into orders
@@ -126,8 +119,8 @@ export default function KitchenPage() {
             .filter(oi => oi.order_id === order.id)
             .map(oi => ({
               ...oi,
-              name_en: oi.items?.name_en || 'Unknown Item',
-              name_ar: oi.items?.name_ar || '',
+              name_en: oi.item_name_en || 'Unknown Item',
+              name_ar: oi.item_name_ar || '',
             }))
         }))
         
