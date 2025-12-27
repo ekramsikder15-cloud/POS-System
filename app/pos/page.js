@@ -353,7 +353,7 @@ export default function POSPage() {
       if (orderError) throw orderError
       
       // Create order items
-      const orderItems = cart.map((c, index) => ({
+      const orderItems = cart.map((c) => ({
         id: uuidv4(),
         order_id: orderId,
         item_id: c.item.id,
@@ -362,14 +362,9 @@ export default function POSPage() {
         quantity: c.quantity,
         unit_price: c.item.base_price,
         total_price: c.totalPrice,
-        modifiers: c.modifiers.length > 0 ? c.modifiers.map(m => ({
-          id: m.id,
-          name_en: m.name_en,
-          name_ar: m.name_ar,
-          price: m.price
-        })) : null,
-        special_instructions: c.specialInstructions || null,
-        sort_order: index
+        notes: c.modifiers.length > 0 
+          ? c.modifiers.map(m => `+ ${m.name_en}`).join(', ') + (c.specialInstructions ? ` | ${c.specialInstructions}` : '')
+          : c.specialInstructions || null
       }))
       
       const { error: itemsError } = await supabase.from('order_items').insert(orderItems)
