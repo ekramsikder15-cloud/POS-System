@@ -1,21 +1,20 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase, TENANT_ID, BRANCH_ID } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import { v4 as uuidv4 } from 'uuid'
 import {
   Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, Banknote,
-  User, LogOut, Clock, Receipt, Pause, Play, X, Check, Printer,
+  User, LogOut, Clock, Pause, Play, X, Check, Printer,
   UtensilsCrossed, Package, Bike, ChefHat
 } from 'lucide-react'
 
@@ -27,8 +26,8 @@ const ORDER_TYPES = [
 ]
 
 // Format price in KWD (3 decimals)
-const formatPrice = (price) => {
-  return Number(price || 0).toFixed(3) + ' KWD'
+const formatPrice = (price, currency = 'KWD') => {
+  return Number(price || 0).toFixed(3) + ' ' + currency
 }
 
 // Generate order number
@@ -39,12 +38,24 @@ const generateOrderNumber = () => {
   return `ORD-${dateStr}-${seq}`
 }
 
+// Format date for receipt
+const formatReceiptDate = (date) => {
+  return new Date(date).toLocaleString('en-US', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  })
+}
+
 export default function POSPage() {
   const router = useRouter()
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [branch, setBranch] = useState(null)
-  const [tenant, setTenant] = useState(null)
+  const receiptRef = useRef(null)
   
   // Menu state
   const [categories, setCategories] = useState([])
@@ -85,7 +96,8 @@ export default function POSPage() {
   useEffect(() => {
     const storedUser = localStorage.getItem('pos_user')
     if (storedUser) {
-      setUser(JSON.parse(storedUser))
+      const userData = JSON.parse(storedUser)
+      setUser(userData)
     } else {
       router.push('/pos/login')
     }
@@ -101,11 +113,11 @@ export default function POSPage() {
   const loadData = async () => {
     setLoading(true)
     try {
-      // Load categories
+      // Load categories for user's tenant
       const { data: cats } = await supabase
         .from('categories')
         .select('*')
-        .eq('tenant_id', TENANT_ID)
+        .eq('tenant_id', user.tenant_id)
         .eq('status', 'active')
         .order('sort_order')
       setCategories(cats || [])
@@ -115,7 +127,7 @@ export default function POSPage() {
       const { data: menuItems } = await supabase
         .from('items')
         .select('*')
-        .eq('tenant_id', TENANT_ID)
+        .eq('tenant_id', user.tenant_id)
         .eq('status', 'active')
         .order('sort_order')
       setItems(menuItems || [])
@@ -124,7 +136,7 @@ export default function POSPage() {
       const { data: modGroups } = await supabase
         .from('modifier_groups')
         .select('*')
-        .eq('tenant_id', TENANT_ID)
+        .eq('tenant_id', user.tenant_id)
         .eq('status', 'active')
       setModifierGroups(modGroups || [])
       
@@ -141,35 +153,19 @@ export default function POSPage() {
         .select('*')
       setItemModifierGroups(itemMods || [])
       
-      // Load branch
-      const { data: branchData } = await supabase
-        .from('branches')
-        .select('*')
-        .eq('id', BRANCH_ID)
-        .single()
-      setBranch(branchData)
-      
-      // Load tenant
-      const { data: tenantData } = await supabase
-        .from('tenants')
-        .select('*')
-        .eq('id', TENANT_ID)
-        .single()
-      setTenant(tenantData)
-      
       // Load today's orders
       const today = new Date().toISOString().slice(0, 10)
       const { data: orders } = await supabase
         .from('orders')
         .select('*')
-        .eq('tenant_id', TENANT_ID)
-        .eq('branch_id', BRANCH_ID)
+        .eq('tenant_id', user.tenant_id)
+        .eq('branch_id', user.branch_id)
         .gte('created_at', today)
         .order('created_at', { ascending: false })
       setOrderHistory(orders || [])
       
       // Load held orders from localStorage
-      const held = localStorage.getItem('pos_held_orders')
+      const held = localStorage.getItem(`pos_held_orders_${user.branch_id}`)
       if (held) setHeldOrders(JSON.parse(held))
       
     } catch (error) {
@@ -184,7 +180,7 @@ export default function POSPage() {
     const matchesCategory = !selectedCategory || item.category_id === selectedCategory
     const matchesSearch = !searchQuery || 
       item.name_en.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.name_ar.includes(searchQuery)
+      item.name_ar?.includes(searchQuery)
     return matchesCategory && matchesSearch
   })
   
@@ -266,11 +262,12 @@ export default function POSPage() {
   
   // Calculate totals
   const subtotal = cart.reduce((sum, item) => sum + item.totalPrice, 0)
-  const taxRate = tenant?.tax_rate || 0
-  const serviceChargeRate = tenant?.service_charge_rate || 0
+  const taxRate = user?.tenant?.tax_rate || 0
+  const serviceChargeRate = user?.tenant?.service_charge_rate || 0
   const tax = subtotal * (taxRate / 100)
   const serviceCharge = subtotal * (serviceChargeRate / 100)
   const total = subtotal + tax + serviceCharge
+  const currency = user?.tenant?.currency || 'KWD'
   
   // Hold current order
   const holdOrder = () => {
@@ -287,7 +284,7 @@ export default function POSPage() {
     }
     const newHeldOrders = [...heldOrders, held]
     setHeldOrders(newHeldOrders)
-    localStorage.setItem('pos_held_orders', JSON.stringify(newHeldOrders))
+    localStorage.setItem(`pos_held_orders_${user.branch_id}`, JSON.stringify(newHeldOrders))
     clearOrder()
     toast.success('Order held')
   }
@@ -299,7 +296,7 @@ export default function POSPage() {
     setCustomerName(heldOrder.customerName || '')
     const newHeldOrders = heldOrders.filter(h => h.id !== heldOrder.id)
     setHeldOrders(newHeldOrders)
-    localStorage.setItem('pos_held_orders', JSON.stringify(newHeldOrders))
+    localStorage.setItem(`pos_held_orders_${user.branch_id}`, JSON.stringify(newHeldOrders))
     setHoldOrdersModalOpen(false)
     toast.success('Order resumed')
   }
@@ -327,11 +324,11 @@ export default function POSPage() {
       const orderNumber = generateOrderNumber()
       const orderId = uuidv4()
       
-      // Create order with correct schema
+      // Create order
       const orderData = {
         id: orderId,
-        tenant_id: TENANT_ID,
-        branch_id: BRANCH_ID,
+        tenant_id: user.tenant_id,
+        branch_id: user.branch_id,
         order_number: orderNumber,
         channel: 'pos',
         order_type: orderType,
@@ -345,7 +342,7 @@ export default function POSPage() {
         total_amount: total,
         user_id: user.id,
         notes: paymentMethod === 'cash' 
-          ? `Cash: ${(parseFloat(amountReceived) || total).toFixed(3)} KWD, Change: ${Math.max(0, (parseFloat(amountReceived) || 0) - total).toFixed(3)} KWD`
+          ? `Cash: ${(parseFloat(amountReceived) || total).toFixed(3)} ${currency}, Change: ${Math.max(0, (parseFloat(amountReceived) || 0) - total).toFixed(3)} ${currency}`
           : `Card payment`
       }
       
@@ -370,10 +367,9 @@ export default function POSPage() {
       const { error: itemsError } = await supabase.from('order_items').insert(orderItems)
       if (itemsError) {
         console.error('Order items error:', itemsError)
-        // Continue anyway - order is created
       }
       
-      // Build local order data for display
+      // Build display order for receipt
       const displayOrder = {
         ...orderData,
         items: cart.map(c => ({
@@ -391,7 +387,9 @@ export default function POSPage() {
         amount_received: paymentMethod === 'cash' ? parseFloat(amountReceived) || total : total,
         change_amount: paymentMethod === 'cash' ? Math.max(0, (parseFloat(amountReceived) || 0) - total) : 0,
         cashier_name: user.name,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        branch: user.branch,
+        tenant: user.tenant
       }
       
       setLastOrder(displayOrder)
@@ -406,9 +404,55 @@ export default function POSPage() {
     }
   }
   
-  // Print receipt
+  // Print thermal receipt
   const printReceipt = () => {
-    window.print()
+    const printContent = receiptRef.current
+    if (!printContent) return
+    
+    const printWindow = window.open('', '_blank', 'width=302,height=600')
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Receipt - ${lastOrder?.order_number}</title>
+        <style>
+          @page { size: 80mm auto; margin: 0; }
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { 
+            font-family: 'Courier New', monospace; 
+            font-size: 12px; 
+            line-height: 1.4;
+            width: 80mm;
+            padding: 2mm;
+          }
+          .receipt-header { text-align: center; margin-bottom: 3mm; padding-bottom: 2mm; border-bottom: 1px dashed #000; }
+          .receipt-header h1 { font-size: 16px; font-weight: bold; margin-bottom: 1mm; }
+          .receipt-header p { font-size: 10px; margin: 0.5mm 0; }
+          .receipt-info { margin: 2mm 0; font-size: 11px; }
+          .receipt-info div { margin: 1mm 0; }
+          .receipt-items { margin: 3mm 0; padding: 2mm 0; border-top: 1px dashed #000; border-bottom: 1px dashed #000; }
+          .receipt-item { margin: 1.5mm 0; }
+          .receipt-item-row { display: flex; justify-content: space-between; font-size: 11px; }
+          .receipt-item-modifier { font-size: 10px; padding-left: 3mm; color: #555; }
+          .receipt-totals { margin: 2mm 0; }
+          .receipt-total-line { display: flex; justify-content: space-between; font-size: 11px; margin: 0.5mm 0; }
+          .receipt-total-line.total { font-size: 14px; font-weight: bold; margin-top: 2mm; padding-top: 2mm; border-top: 1px solid #000; }
+          .receipt-payment { margin: 2mm 0; padding: 2mm 0; border-top: 1px dashed #000; }
+          .receipt-footer { text-align: center; margin-top: 3mm; padding-top: 2mm; border-top: 1px dashed #000; font-size: 10px; }
+          .receipt-barcode { text-align: center; margin: 2mm 0; font-size: 8px; letter-spacing: 1px; }
+        </style>
+      </head>
+      <body>
+        ${printContent.innerHTML}
+      </body>
+      </html>
+    `)
+    printWindow.document.close()
+    printWindow.focus()
+    setTimeout(() => {
+      printWindow.print()
+      printWindow.close()
+    }, 250)
   }
   
   // Logout
@@ -434,7 +478,7 @@ export default function POSPage() {
       <header className="bg-[#1e3a5f] text-white px-4 py-3 flex items-center justify-between shadow-lg">
         <div className="flex items-center gap-4">
           <h1 className="text-xl font-bold text-[#d4af37]">RIWA POS</h1>
-          <span className="text-sm text-[#a8c5e6]">{branch?.name || 'Bam Burgers'}</span>
+          <span className="text-sm text-[#a8c5e6]">{user.tenant?.name} - {user.branch?.name}</span>
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 text-sm">
@@ -537,7 +581,7 @@ export default function POSPage() {
                   className="cursor-pointer hover:shadow-lg transition-shadow border-[#a8c5e6] hover:border-[#1e3a5f] bg-white"
                   onClick={() => openItemModal(item)}
                 >
-                  <CardContent className="p-4">
+                  <div className="p-4">
                     <div className="aspect-square bg-[#f5f7fa] rounded-lg mb-3 flex items-center justify-center">
                       {item.image_url ? (
                         <img src={item.image_url} alt={item.name_en} className="w-full h-full object-cover rounded-lg" />
@@ -547,8 +591,8 @@ export default function POSPage() {
                     </div>
                     <h3 className="font-semibold text-[#1e3a5f] line-clamp-2">{item.name_en}</h3>
                     <p className="text-sm text-gray-500 line-clamp-1 mt-1">{item.name_ar}</p>
-                    <p className="text-lg font-bold text-[#d4af37] mt-2">{formatPrice(item.base_price)}</p>
-                  </CardContent>
+                    <p className="text-lg font-bold text-[#d4af37] mt-2">{formatPrice(item.base_price, currency)}</p>
+                  </div>
                 </Card>
               ))}
             </div>
@@ -581,7 +625,7 @@ export default function POSPage() {
               ) : (
                 cart.map(cartItem => (
                   <Card key={cartItem.id} className="border-[#a8c5e6]">
-                    <CardContent className="p-3">
+                    <div className="p-3">
                       <div className="flex justify-between items-start mb-2">
                         <div className="flex-1">
                           <h4 className="font-semibold text-[#1e3a5f]">{cartItem.item.name_en}</h4>
@@ -625,9 +669,9 @@ export default function POSPage() {
                             <Plus className="w-4 h-4" />
                           </Button>
                         </div>
-                        <span className="font-bold text-[#1e3a5f]">{formatPrice(cartItem.totalPrice)}</span>
+                        <span className="font-bold text-[#1e3a5f]">{formatPrice(cartItem.totalPrice, currency)}</span>
                       </div>
-                    </CardContent>
+                    </div>
                   </Card>
                 ))
               )}
@@ -639,23 +683,23 @@ export default function POSPage() {
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-500">Subtotal</span>
-                <span className="font-medium">{formatPrice(subtotal)}</span>
+                <span className="font-medium">{formatPrice(subtotal, currency)}</span>
               </div>
               {tax > 0 && (
                 <div className="flex justify-between">
                   <span className="text-gray-500">Tax ({taxRate}%)</span>
-                  <span className="font-medium">{formatPrice(tax)}</span>
+                  <span className="font-medium">{formatPrice(tax, currency)}</span>
                 </div>
               )}
               {serviceCharge > 0 && (
                 <div className="flex justify-between">
                   <span className="text-gray-500">Service ({serviceChargeRate}%)</span>
-                  <span className="font-medium">{formatPrice(serviceCharge)}</span>
+                  <span className="font-medium">{formatPrice(serviceCharge, currency)}</span>
                 </div>
               )}
               <div className="flex justify-between text-lg font-bold text-[#1e3a5f] pt-2 border-t border-[#a8c5e6]">
                 <span>Total</span>
-                <span className="text-[#d4af37]">{formatPrice(total)}</span>
+                <span className="text-[#d4af37]">{formatPrice(total, currency)}</span>
               </div>
             </div>
             
@@ -698,7 +742,7 @@ export default function POSPage() {
               disabled={cart.length === 0}
             >
               <CreditCard className="w-5 h-5 mr-2" />
-              Payment ({formatPrice(total)})
+              Payment ({formatPrice(total, currency)})
             </Button>
           </div>
         </div>
@@ -718,7 +762,7 @@ export default function POSPage() {
             <div className="space-y-6">
               {/* Base Price */}
               <div className="text-2xl font-bold text-[#d4af37]">
-                {formatPrice(selectedItem.base_price)}
+                {formatPrice(selectedItem.base_price, currency)}
               </div>
               
               {/* Quantity */}
@@ -780,7 +824,7 @@ export default function POSPage() {
                           </div>
                           <span className="font-medium">{mod.name_en}</span>
                         </div>
-                        <span className="text-[#d4af37] font-medium">+{formatPrice(mod.price)}</span>
+                        <span className="text-[#d4af37] font-medium">+{formatPrice(mod.price, currency)}</span>
                       </div>
                     ))}
                   </div>
@@ -810,7 +854,8 @@ export default function POSPage() {
             >
               Add to Cart - {formatPrice(
                 (selectedItem?.base_price || 0) + 
-                selectedModifiers.reduce((sum, m) => sum + m.price, 0)
+                selectedModifiers.reduce((sum, m) => sum + m.price, 0),
+                currency
               )} × {itemQuantity}
             </Button>
           </DialogFooter>
@@ -894,7 +939,7 @@ export default function POSPage() {
                   <div className="mt-2 p-3 bg-green-50 rounded-lg text-center">
                     <span className="text-green-600 font-medium">Change: </span>
                     <span className="text-green-700 font-bold text-xl">
-                      {formatPrice(parseFloat(amountReceived) - total)}
+                      {formatPrice(parseFloat(amountReceived) - total, currency)}
                     </span>
                   </div>
                 )}
@@ -905,7 +950,7 @@ export default function POSPage() {
             <div className="bg-[#f5f7fa] rounded-lg p-4">
               <div className="text-center">
                 <span className="text-gray-500">Total Amount</span>
-                <div className="text-3xl font-bold text-[#d4af37]">{formatPrice(total)}</div>
+                <div className="text-3xl font-bold text-[#d4af37]">{formatPrice(total, currency)}</div>
               </div>
             </div>
           </div>
@@ -939,45 +984,80 @@ export default function POSPage() {
             </div>
             
             {/* Receipt Preview */}
-            <div className="text-left bg-gray-50 p-4 rounded-lg text-sm font-mono space-y-2">
-              <div className="text-center font-bold">{branch?.name}</div>
-              <div className="text-center text-xs">{branch?.address}</div>
-              <div className="text-center text-xs">{branch?.phone}</div>
-              <div className="border-t border-dashed my-2"></div>
-              <div>Order: {lastOrder?.order_number}</div>
-              <div>{new Date(lastOrder?.created_at).toLocaleString()}</div>
-              <div className="border-t border-dashed my-2"></div>
-              {lastOrder?.items?.map((item, i) => (
-                <div key={i}>
-                  <div className="flex justify-between">
-                    <span>{item.quantity}x {item.name_en}</span>
-                    <span>{formatPrice(item.total_price)}</span>
-                  </div>
-                  {item.modifiers?.map((m, j) => (
-                    <div key={j} className="text-xs text-gray-500 pl-4">+ {m.name_en}</div>
-                  ))}
-                </div>
-              ))}
-              <div className="border-t border-dashed my-2"></div>
-              <div className="flex justify-between font-bold">
-                <span>Total:</span>
-                <span>{formatPrice(lastOrder?.total)}</span>
+            <div ref={receiptRef} className="text-left bg-gray-50 p-4 rounded-lg text-sm font-mono space-y-2">
+              <div className="receipt-header">
+                <h1>{lastOrder?.tenant?.name || 'RIWA POS'}</h1>
+                <p>{lastOrder?.branch?.name}</p>
+                <p>{lastOrder?.branch?.address}</p>
+                <p>{lastOrder?.branch?.phone}</p>
               </div>
+              
+              <div className="receipt-info">
+                <div>Order: {lastOrder?.order_number}</div>
+                <div>Date: {formatReceiptDate(lastOrder?.created_at)}</div>
+                <div>Cashier: {lastOrder?.cashier_name}</div>
+                <div>Type: {ORDER_TYPES.find(t => t.id === lastOrder?.order_type)?.label}</div>
+                {lastOrder?.customer_name && <div>Customer: {lastOrder?.customer_name}</div>}
+              </div>
+              
+              <div className="receipt-items">
+                {lastOrder?.items?.map((item, i) => (
+                  <div key={i} className="receipt-item">
+                    <div className="receipt-item-row">
+                      <span>{item.quantity}x {item.name_en}</span>
+                      <span>{formatPrice(item.total_price, currency)}</span>
+                    </div>
+                    {item.modifiers?.map((m, j) => (
+                      <div key={j} className="receipt-item-modifier">+ {m.name_en}</div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+              
+              <div className="receipt-totals">
+                <div className="receipt-total-line">
+                  <span>Subtotal:</span>
+                  <span>{formatPrice(lastOrder?.subtotal, currency)}</span>
+                </div>
+                {lastOrder?.tax_amount > 0 && (
+                  <div className="receipt-total-line">
+                    <span>Tax:</span>
+                    <span>{formatPrice(lastOrder?.tax_amount, currency)}</span>
+                  </div>
+                )}
+                {lastOrder?.service_charge > 0 && (
+                  <div className="receipt-total-line">
+                    <span>Service:</span>
+                    <span>{formatPrice(lastOrder?.service_charge, currency)}</span>
+                  </div>
+                )}
+                <div className="receipt-total-line total">
+                  <span>TOTAL:</span>
+                  <span>{formatPrice(lastOrder?.total, currency)}</span>
+                </div>
+              </div>
+              
               {lastOrder?.payment_method === 'cash' && (
-                <>
-                  <div className="flex justify-between">
-                    <span>Received:</span>
-                    <span>{formatPrice(lastOrder?.amount_received)}</span>
+                <div className="receipt-payment">
+                  <div className="receipt-total-line">
+                    <span>Cash Received:</span>
+                    <span>{formatPrice(lastOrder?.amount_received, currency)}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="receipt-total-line">
                     <span>Change:</span>
-                    <span>{formatPrice(lastOrder?.change_amount)}</span>
+                    <span>{formatPrice(lastOrder?.change_amount, currency)}</span>
                   </div>
-                </>
+                </div>
               )}
-              <div className="border-t border-dashed my-2"></div>
-              <div className="text-center text-xs">Thank you!</div>
-              <div className="text-center text-xs">Powered by RIWA POS</div>
+              
+              <div className="receipt-barcode">
+                *{lastOrder?.order_number}*
+              </div>
+              
+              <div className="receipt-footer">
+                <p>Thank you for your visit!</p>
+                <p>Powered by RIWA POS</p>
+              </div>
             </div>
             
             <div className="flex gap-2">
@@ -1010,13 +1090,13 @@ export default function POSPage() {
             <div className="space-y-3">
               {orderHistory.length === 0 ? (
                 <div className="text-center py-8 text-gray-400">
-                  <Receipt className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <Clock className="w-12 h-12 mx-auto mb-2 opacity-50" />
                   <p>No orders today</p>
                 </div>
               ) : (
                 orderHistory.map(order => (
                   <Card key={order.id} className="border-[#a8c5e6]">
-                    <CardContent className="p-4">
+                    <div className="p-4">
                       <div className="flex justify-between items-start mb-2">
                         <div>
                           <div className="font-bold text-[#1e3a5f]">{order.order_number}</div>
@@ -1033,14 +1113,16 @@ export default function POSPage() {
                             {order.status}
                           </Badge>
                           <div className="text-lg font-bold text-[#d4af37] mt-1">
-                            {formatPrice(order.total)}
+                            {formatPrice(order.total_amount || order.total, currency)}
                           </div>
                         </div>
                       </div>
-                      <div className="text-sm text-gray-600">
-                        {order.items?.map(i => `${i.quantity}x ${i.name_en}`).join(', ')}
-                      </div>
-                    </CardContent>
+                      {order.items && (
+                        <div className="text-sm text-gray-600">
+                          {order.items?.map(i => `${i.quantity}x ${i.name_en}`).join(', ')}
+                        </div>
+                      )}
+                    </div>
                   </Card>
                 ))
               )}
@@ -1062,7 +1144,7 @@ export default function POSPage() {
                 className="border-[#a8c5e6] cursor-pointer hover:border-[#d4af37]"
                 onClick={() => resumeOrder(held)}
               >
-                <CardContent className="p-4">
+                <div className="p-4">
                   <div className="flex justify-between items-center">
                     <div>
                       <div className="font-medium text-[#1e3a5f]">
@@ -1080,56 +1162,12 @@ export default function POSPage() {
                       Resume
                     </Button>
                   </div>
-                </CardContent>
+                </div>
               </Card>
             ))}
           </div>
         </DialogContent>
       </Dialog>
-      
-      {/* Print Receipt (Hidden) */}
-      {lastOrder && (
-        <div className="hidden print-only print:block p-4 max-w-[80mm] mx-auto text-xs font-mono">
-          <div className="text-center font-bold text-base">{branch?.name}</div>
-          <div className="text-center">{branch?.address}</div>
-          <div className="text-center mb-2">{branch?.phone}</div>
-          <div className="border-t border-dashed my-2"></div>
-          <div>Order: {lastOrder.order_number}</div>
-          <div>{new Date(lastOrder.created_at).toLocaleString()}</div>
-          <div className="border-t border-dashed my-2"></div>
-          {lastOrder.items?.map((item, i) => (
-            <div key={i} className="mb-1">
-              <div className="flex justify-between">
-                <span>{item.quantity}x {item.name_en}</span>
-                <span>{formatPrice(item.total_price)}</span>
-              </div>
-              {item.modifiers?.map((m, j) => (
-                <div key={j} className="pl-2">+ {m.name_en}</div>
-              ))}
-            </div>
-          ))}
-          <div className="border-t border-dashed my-2"></div>
-          <div className="flex justify-between font-bold text-sm">
-            <span>Total:</span>
-            <span>{formatPrice(lastOrder.total)}</span>
-          </div>
-          {lastOrder.payment_method === 'cash' && (
-            <>
-              <div className="flex justify-between">
-                <span>Received:</span>
-                <span>{formatPrice(lastOrder.amount_received)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Change:</span>
-                <span>{formatPrice(lastOrder.change_amount)}</span>
-              </div>
-            </>
-          )}
-          <div className="border-t border-dashed my-2"></div>
-          <div className="text-center mt-4">Thank you!</div>
-          <div className="text-center">Powered by RIWA POS</div>
-        </div>
-      )}
     </div>
   )
 }
