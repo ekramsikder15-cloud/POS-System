@@ -1,8 +1,9 @@
 import './globals.css'
+import { Toaster } from '@/components/ui/sonner'
 
 export const metadata = {
-  title: 'Next.js MongoDB Template',
-  description: 'A simple template with App Router, MongoDB, and shadcn/ui',
+  title: 'RIWA POS - Bam Burgers',
+  description: 'Point of Sale System for Bam Burgers Restaurant',
 }
 
 export default function RootLayout({ children }) {
@@ -10,6 +11,7 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body>
         {children}
+        <Toaster position="top-right" richColors />
       </body>
     </html>
   )
