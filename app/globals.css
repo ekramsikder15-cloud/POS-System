@@ -65,16 +65,114 @@
   min-width: 48px;
 }
 
-/* Print styles */
+/* Print styles for thermal receipt (80mm = ~302px at 96dpi) */
 @media print {
+  @page {
+    size: 80mm auto;
+    margin: 0;
+  }
+  
+  html, body {
+    width: 80mm;
+    margin: 0;
+    padding: 0;
+  }
+  
   .no-print {
     display: none !important;
   }
-  .print-only {
+  
+  .print-receipt {
     display: block !important;
+    width: 80mm;
+    padding: 2mm;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    line-height: 1.4;
+    background: white;
+    color: black;
   }
-  body {
-    background: white !important;
+  
+  .print-receipt * {
+    margin: 0;
+    padding: 0;
+  }
+  
+  .print-receipt .receipt-header {
+    text-align: center;
+    margin-bottom: 3mm;
+    padding-bottom: 2mm;
+    border-bottom: 1px dashed #000;
+  }
+  
+  .print-receipt .receipt-header h1 {
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 1mm;
+  }
+  
+  .print-receipt .receipt-header p {
+    font-size: 10px;
+    margin: 0.5mm 0;
+  }
+  
+  .print-receipt .receipt-info {
+    margin: 2mm 0;
+    font-size: 11px;
+  }
+  
+  .print-receipt .receipt-items {
+    margin: 3mm 0;
+    padding: 2mm 0;
+    border-top: 1px dashed #000;
+    border-bottom: 1px dashed #000;
+  }
+  
+  .print-receipt .receipt-item {
+    display: flex;
+    justify-content: space-between;
+    margin: 1mm 0;
+    font-size: 11px;
+  }
+  
+  .print-receipt .receipt-item-modifier {
+    font-size: 10px;
+    padding-left: 3mm;
+    color: #555;
+  }
+  
+  .print-receipt .receipt-totals {
+    margin: 2mm 0;
+  }
+  
+  .print-receipt .receipt-total-line {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    margin: 0.5mm 0;
+  }
+  
+  .print-receipt .receipt-total-line.total {
+    font-size: 14px;
+    font-weight: bold;
+    margin-top: 2mm;
+    padding-top: 2mm;
+    border-top: 1px solid #000;
+  }
+  
+  .print-receipt .receipt-footer {
+    text-align: center;
+    margin-top: 3mm;
+    padding-top: 2mm;
+    border-top: 1px dashed #000;
+    font-size: 10px;
+  }
+  
+  .print-receipt .receipt-barcode {
+    text-align: center;
+    margin: 3mm 0;
+    font-family: 'Libre Barcode 39', cursive;
+    font-size: 32px;
   }
 }
 
@@ -90,4 +188,26 @@
 
 .order-new {
   animation: order-pulse 2s infinite;
+}
+
+/* Sound settings modal */
+.sound-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sound-option:hover {
+  border-color: #d4af37;
+  background: rgba(212, 175, 55, 0.05);
+}
+
+.sound-option.selected {
+  border-color: #d4af37;
+  background: rgba(212, 175, 55, 0.1);
 }

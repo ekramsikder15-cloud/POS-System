@@ -2,13 +2,13 @@
 
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase, TENANT_ID, BRANCH_ID } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from 'sonner'
-import { User, Lock, ChefHat, ShoppingCart, ArrowRight } from 'lucide-react'
+import { User, ChefHat, ShoppingCart, ArrowRight, Loader2 } from 'lucide-react'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -16,10 +16,8 @@ export default function LoginPage() {
   const [username, setUsername] = useState('')
   const [pin, setPin] = useState('')
   const [loading, setLoading] = useState(false)
-  const pinInputRef = useRef(null)
   
   const handlePinChange = (value) => {
-    // Only allow digits
     const cleaned = value.replace(/\D/g, '').slice(0, 4)
     setPin(cleaned)
   }
@@ -50,11 +48,25 @@ export default function LoginPage() {
     
     setLoading(true)
     try {
-      // Query user by email or name with matching PIN
+      // Query user by matching username pattern and PIN
       const { data: users, error } = await supabase
         .from('users')
-        .select('*')
-        .eq('tenant_id', TENANT_ID)
+        .select(`
+          *,
+          branches:branch_id (
+            id,
+            name,
+            address,
+            phone
+          ),
+          tenants:tenant_id (
+            id,
+            name,
+            currency,
+            tax_rate,
+            service_charge_rate
+          )
+        `)
         .eq('pin', pin)
         .eq('status', 'active')
       
@@ -73,7 +85,7 @@ export default function LoginPage() {
         return
       }
       
-      // Check role permissions
+      // Check role permissions based on login type
       const allowedRoles = loginType === 'cashier' 
         ? ['cashier', 'tenant_owner', 'branch_manager']
         : ['kitchen', 'tenant_owner', 'branch_manager']
@@ -84,15 +96,27 @@ export default function LoginPage() {
         return
       }
       
-      // Store user session
-      localStorage.setItem('pos_user', JSON.stringify({
+      // Store complete user session with tenant and branch info
+      const sessionData = {
         id: user.id,
         name: user.name,
         email: user.email,
         role: user.role,
+        tenant_id: user.tenant_id,
         branch_id: user.branch_id,
-        loginType
-      }))
+        branch: user.branches,
+        tenant: user.tenants,
+        loginType,
+        loginTime: new Date().toISOString()
+      }
+      
+      localStorage.setItem('pos_user', JSON.stringify(sessionData))
+      
+      // Update last login
+      await supabase
+        .from('users')
+        .update({ last_login_at: new Date().toISOString() })
+        .eq('id', user.id)
       
       toast.success(`Welcome, ${user.name}!`)
       
@@ -117,7 +141,7 @@ export default function LoginPage() {
             <span className="text-3xl font-bold text-[#1e3a5f]">RP</span>
           </div>
           <CardTitle className="text-2xl font-bold text-[#1e3a5f]">RIWA POS</CardTitle>
-          <p className="text-sm text-gray-500">Bam Burgers - Point of Sale</p>
+          <p className="text-sm text-gray-500">Point of Sale System</p>
         </CardHeader>
         
         <CardContent className="space-y-6">
@@ -152,6 +176,7 @@ export default function LoginPage() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className="pl-10 h-12 text-lg border-[#a8c5e6] focus:border-[#1e3a5f] focus:ring-[#1e3a5f]"
+                autoComplete="off"
               />
             </div>
           </div>
@@ -217,7 +242,7 @@ export default function LoginPage() {
             disabled={loading || pin.length !== 4 || !username}
           >
             {loading ? (
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#1e3a5f]"></div>
+              <Loader2 className="w-5 h-5 animate-spin" />
             ) : (
               <>
                 Login as {loginType === 'cashier' ? 'Cashier' : 'Kitchen Staff'}
@@ -225,11 +250,6 @@ export default function LoginPage() {
               </>
             )}
           </Button>
-          
-          {/* Demo Credentials */}
-          <div className="text-center text-sm text-gray-400 pt-2 border-t border-[#a8c5e6]">
-            <p>Demo: Username: <span className="text-[#1e3a5f] font-medium">admin</span> | PIN: <span className="text-[#1e3a5f] font-medium">1234</span></p>
-          </div>
         </CardContent>
       </Card>
     </div>
