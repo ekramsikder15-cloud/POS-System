@@ -91,7 +91,9 @@ export default function KitchenPage() {
   const loadOrders = async () => {
     try {
       const today = new Date().toISOString().slice(0, 10)
-      const { data, error } = await supabase
+      
+      // Load orders
+      const { data: ordersData, error } = await supabase
         .from('orders')
         .select('*')
         .eq('tenant_id', TENANT_ID)
@@ -102,12 +104,43 @@ export default function KitchenPage() {
       
       if (error) throw error
       
-      // Check for new orders and play sound
-      if (data && data.length > lastOrderCount && lastOrderCount > 0 && audioEnabled) {
-        playNotificationSound()
+      // Load order items for each order
+      if (ordersData && ordersData.length > 0) {
+        const orderIds = ordersData.map(o => o.id)
+        const { data: orderItemsData } = await supabase
+          .from('order_items')
+          .select(`
+            *,
+            items:item_id (
+              id,
+              name_en,
+              name_ar
+            )
+          `)
+          .in('order_id', orderIds)
+        
+        // Merge items into orders
+        const ordersWithItems = ordersData.map(order => ({
+          ...order,
+          items: (orderItemsData || [])
+            .filter(oi => oi.order_id === order.id)
+            .map(oi => ({
+              ...oi,
+              name_en: oi.items?.name_en || 'Unknown Item',
+              name_ar: oi.items?.name_ar || '',
+            }))
+        }))
+        
+        // Check for new orders and play sound
+        if (ordersWithItems.length > lastOrderCount && lastOrderCount > 0 && audioEnabled) {
+          playNotificationSound()
+        }
+        setLastOrderCount(ordersWithItems.length)
+        setOrders(ordersWithItems)
+      } else {
+        setOrders([])
+        setLastOrderCount(0)
       }
-      setLastOrderCount(data?.length || 0)
-      setOrders(data || [])
     } catch (error) {
       console.error('Error loading orders:', error)
     }
