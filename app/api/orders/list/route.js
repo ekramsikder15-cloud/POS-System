@@ -38,7 +38,8 @@ export async function GET(request) {
     
     if (status) {
       // Support multiple statuses separated by comma
-      const statuses = status.split(',')
+      const statuses = status.split(',').map(s => s.trim())
+      console.log('Status filter:', statuses)
       query = query.in('status', statuses)
     }
     
