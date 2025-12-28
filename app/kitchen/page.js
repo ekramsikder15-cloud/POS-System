@@ -71,14 +71,6 @@ const getTimeElapsed = (dateStr) => {
   return `${diffHours} hours ago`
 }
 
-// Generate order number
-const generateOrderNumber = () => {
-  const date = new Date()
-  const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '')
-  const seq = String(Math.floor(Math.random() * 999) + 1).padStart(3, '0')
-  return `ORD-${dateStr}-${seq}`
-}
-
 export default function KitchenPage() {
   const router = useRouter()
   const [user, setUser] = useState(null)
