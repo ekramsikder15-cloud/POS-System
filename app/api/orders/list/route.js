@@ -1,8 +1,24 @@
-import { supabaseAdmin, apiResponse, isValidUUID } from '@/lib/supabase-admin'
+import { createClient } from '@supabase/supabase-js'
+import { apiResponse, isValidUUID } from '@/lib/supabase-admin'
+
+// Create fresh client for this request to avoid caching issues
+const getSupabaseClient = () => {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    }
+  )
+}
 
 // GET /api/orders/list?tenant_id={id}&branch_id={id}&status={status}&date={date}&channel={channel}&limit={limit}&offset={offset}
 export async function GET(request) {
   try {
+    const supabaseAdmin = getSupabaseClient()
     const { searchParams } = new URL(request.url)
     const tenantId = searchParams.get('tenant_id')
     const branchId = searchParams.get('branch_id')
