@@ -43,8 +43,8 @@ export async function GET(request) {
     }
     
     if (date) {
-      const startOfDay = `${date}T00:00:00.000Z`
-      const endOfDay = `${date}T23:59:59.999Z`
+      const startOfDay = `${date}T00:00:00`
+      const endOfDay = `${date}T23:59:59.999`
       query = query.gte('created_at', startOfDay).lte('created_at', endOfDay)
     }
     
