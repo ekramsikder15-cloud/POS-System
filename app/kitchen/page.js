@@ -252,12 +252,21 @@ export default function KitchenPage() {
   // Update order status
   const updateOrderStatus = async (orderId, newStatus) => {
     try {
-      const { error } = await supabase
-        .from('orders')
-        .update({ status: newStatus, updated_at: new Date().toISOString() })
-        .eq('id', orderId)
+      const response = await fetch(`/api/orders/${orderId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: newStatus,
+          user_id: user.id,
+          reason: `Status updated to ${newStatus} by kitchen`
+        })
+      })
       
-      if (error) throw error
+      const data = await response.json()
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to update order')
+      }
       
       toast.success(`Order marked as ${newStatus}`)
       loadOrders()
