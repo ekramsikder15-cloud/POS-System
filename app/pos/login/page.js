@@ -47,42 +47,22 @@ export default function LoginPage() {
     
     setLoading(true)
     try {
-      // Query user by matching username pattern and PIN
-      const { data: users, error } = await supabase
-        .from('users')
-        .select(`
-          *,
-          branches:branch_id (
-            id,
-            name,
-            address,
-            phone
-          ),
-          tenants:tenant_id (
-            id,
-            name,
-            currency,
-            tax_rate,
-            service_charge_rate
-          )
-        `)
-        .eq('pin', pin)
-        .eq('status', 'active')
+      // Use the API endpoint for login
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, pin })
+      })
       
-      if (error) throw error
+      const data = await response.json()
       
-      // Find user by username (email prefix or name)
-      const user = users?.find(u => 
-        u.email?.split('@')[0].toLowerCase() === username.toLowerCase() ||
-        u.name?.toLowerCase() === username.toLowerCase() ||
-        u.email?.toLowerCase() === username.toLowerCase()
-      )
-      
-      if (!user) {
-        toast.error('Invalid username or PIN')
+      if (!data.success || !data.data?.user) {
+        toast.error(data.error || 'Invalid username or PIN')
         setLoading(false)
         return
       }
+      
+      const user = data.data.user
       
       // Check role permissions based on login type
       const allowedRoles = loginType === 'cashier' 
@@ -103,19 +83,13 @@ export default function LoginPage() {
         role: user.role,
         tenant_id: user.tenant_id,
         branch_id: user.branch_id,
-        branch: user.branches,
-        tenant: user.tenants,
+        branch: user.branch,
+        tenant: user.tenant,
         loginType,
         loginTime: new Date().toISOString()
       }
       
       localStorage.setItem('pos_user', JSON.stringify(sessionData))
-      
-      // Update last login
-      await supabase
-        .from('users')
-        .update({ last_login_at: new Date().toISOString() })
-        .eq('id', user.id)
       
       toast.success(`Welcome, ${user.name}!`)
       
