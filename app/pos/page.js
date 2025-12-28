@@ -318,57 +318,53 @@ export default function POSPage() {
   // Complete order
   const completeOrder = async () => {
     try {
-      const orderNumber = generateOrderNumber()
-      const orderId = uuidv4()
-      
-      // Create order
-      const orderData = {
-        id: orderId,
-        tenant_id: user.tenant_id,
-        branch_id: user.branch_id,
-        order_number: orderNumber,
-        channel: 'pos',
-        order_type: orderType,
-        status: 'pending',
-        payment_status: 'paid',
-        customer_name: customerName || null,
-        customer_phone: customerPhone || null,
-        subtotal: subtotal,
-        tax_amount: tax,
-        service_charge: serviceCharge,
-        total_amount: total,
-        user_id: user.id,
-        notes: paymentMethod === 'cash' 
-          ? `Cash: ${(parseFloat(amountReceived) || total).toFixed(3)} ${currency}, Change: ${Math.max(0, (parseFloat(amountReceived) || 0) - total).toFixed(3)} ${currency}`
-          : `Card payment`
-      }
-      
-      const { error: orderError } = await supabase.from('orders').insert(orderData)
-      if (orderError) throw orderError
-      
-      // Create order items
-      const orderItems = cart.map((c) => ({
-        id: uuidv4(),
-        order_id: orderId,
+      // Build items array for API
+      const orderItems = cart.map(c => ({
         item_id: c.item.id,
-        item_name_en: c.item.name_en,
-        item_name_ar: c.item.name_ar || '',
         quantity: c.quantity,
-        unit_price: c.item.base_price,
-        total_price: c.totalPrice,
-        notes: c.modifiers.length > 0 
-          ? c.modifiers.map(m => `+ ${m.name_en}`).join(', ') + (c.specialInstructions ? ` | ${c.specialInstructions}` : '')
-          : c.specialInstructions || null
+        modifiers: c.modifiers.map(m => ({
+          id: m.id,
+          name_en: m.name_en,
+          name_ar: m.name_ar,
+          price: m.price
+        })),
+        notes: c.specialInstructions || null
       }))
       
-      const { error: itemsError } = await supabase.from('order_items').insert(orderItems)
-      if (itemsError) {
-        console.error('Order items error:', itemsError)
+      // Call create order API
+      const response = await fetch('/api/orders/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tenant_id: user.tenant_id,
+          branch_id: user.branch_id,
+          order_type: orderType,
+          channel: 'pos',
+          items: orderItems,
+          customer_name: customerName || null,
+          customer_phone: customerPhone || null,
+          payment_method: paymentMethod,
+          amount_received: paymentMethod === 'cash' ? parseFloat(amountReceived) || total : total,
+          user_id: user.id,
+          notes: paymentMethod === 'cash' 
+            ? `Cash: ${(parseFloat(amountReceived) || total).toFixed(3)} ${currency}, Change: ${Math.max(0, (parseFloat(amountReceived) || 0) - total).toFixed(3)} ${currency}`
+            : 'Card payment'
+        })
+      })
+      
+      const data = await response.json()
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to create order')
       }
+      
+      const order = data.data.order
+      const orderNumber = data.data.order_number
       
       // Build display order for receipt
       const displayOrder = {
-        ...orderData,
+        ...order,
+        order_number: orderNumber,
         items: cart.map(c => ({
           item_id: c.item.id,
           name_en: c.item.name_en,
