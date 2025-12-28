@@ -373,7 +373,7 @@ const endpoints = [
 ]
 
 const orderStatusFlow = [
-  { status: 'pending', next: ['accepted', 'cancelled'], color: 'bg-yellow-500' },
+  { status: 'pending', next: ['accepted', 'preparing', 'cancelled'], color: 'bg-yellow-500' },
   { status: 'accepted', next: ['preparing', 'cancelled'], color: 'bg-blue-500' },
   { status: 'preparing', next: ['ready', 'cancelled'], color: 'bg-orange-500' },
   { status: 'ready', next: ['dispatched', 'completed', 'cancelled'], color: 'bg-green-500' },
