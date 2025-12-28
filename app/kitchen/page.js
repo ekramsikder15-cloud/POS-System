@@ -179,13 +179,17 @@ export default function KitchenPage() {
     if (!user) return
     
     try {
+      // Load categories and items via API
       const [catsRes, itemsRes] = await Promise.all([
-        supabase.from('categories').select('*').eq('tenant_id', user.tenant_id).eq('status', 'active').order('sort_order'),
-        supabase.from('items').select('*').eq('tenant_id', user.tenant_id).eq('status', 'active').order('sort_order')
+        fetch(`/api/menu/categories?tenant_id=${user.tenant_id}&status=active`),
+        fetch(`/api/menu/items?tenant_id=${user.tenant_id}&status=active`)
       ])
       
-      setCategories(catsRes.data || [])
-      setItems(itemsRes.data || [])
+      const catsData = await catsRes.json()
+      const itemsData = await itemsRes.json()
+      
+      setCategories(catsData.success ? catsData.data.categories : [])
+      setItems(itemsData.success ? itemsData.data.items : [])
     } catch (error) {
       console.error('Error loading menu:', error)
     }
