@@ -112,56 +112,54 @@ export default function POSPage() {
   const loadData = async () => {
     setLoading(true)
     try {
-      // Load categories for user's tenant
-      const { data: cats } = await supabase
-        .from('categories')
-        .select('*')
-        .eq('tenant_id', user.tenant_id)
-        .eq('status', 'active')
-        .order('sort_order')
-      setCategories(cats || [])
+      // Load categories for user's tenant via API
+      const catsRes = await fetch(`/api/menu/categories?tenant_id=${user.tenant_id}&status=active`)
+      const catsData = await catsRes.json()
+      const cats = catsData.success ? catsData.data.categories : []
+      setCategories(cats)
       if (cats && cats.length > 0) setSelectedCategory(cats[0].id)
       
-      // Load items
-      const { data: menuItems } = await supabase
-        .from('items')
-        .select('*')
-        .eq('tenant_id', user.tenant_id)
-        .eq('status', 'active')
-        .order('sort_order')
-      setItems(menuItems || [])
+      // Load items with modifiers via API
+      const itemsRes = await fetch(`/api/menu/items?tenant_id=${user.tenant_id}&status=active&include_modifiers=true`)
+      const itemsData = await itemsRes.json()
+      const menuItems = itemsData.success ? itemsData.data.items : []
+      setItems(menuItems)
       
-      // Load modifier groups
-      const { data: modGroups } = await supabase
-        .from('modifier_groups')
-        .select('*')
-        .eq('tenant_id', user.tenant_id)
-        .eq('status', 'active')
-      setModifierGroups(modGroups || [])
+      // Extract modifier groups and modifiers from items
+      const allModifierGroups = []
+      const allModifiers = []
+      const allItemModifierGroups = []
       
-      // Load modifiers
-      const { data: mods } = await supabase
-        .from('modifiers')
-        .select('*')
-        .eq('status', 'active')
-      setModifiers(mods || [])
+      menuItems.forEach(item => {
+        if (item.modifier_groups) {
+          item.modifier_groups.forEach(mg => {
+            if (!allModifierGroups.find(g => g.id === mg.id)) {
+              allModifierGroups.push(mg)
+            }
+            if (mg.modifiers) {
+              mg.modifiers.forEach(mod => {
+                if (!allModifiers.find(m => m.id === mod.id)) {
+                  allModifiers.push(mod)
+                }
+              })
+            }
+            allItemModifierGroups.push({
+              item_id: item.id,
+              modifier_group_id: mg.id
+            })
+          })
+        }
+      })
       
-      // Load item modifier groups
-      const { data: itemMods } = await supabase
-        .from('item_modifier_groups')
-        .select('*')
-      setItemModifierGroups(itemMods || [])
+      setModifierGroups(allModifierGroups)
+      setModifiers(allModifiers)
+      setItemModifierGroups(allItemModifierGroups)
       
-      // Load today's orders
+      // Load today's orders via API
       const today = new Date().toISOString().slice(0, 10)
-      const { data: orders } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('tenant_id', user.tenant_id)
-        .eq('branch_id', user.branch_id)
-        .gte('created_at', today)
-        .order('created_at', { ascending: false })
-      setOrderHistory(orders || [])
+      const ordersRes = await fetch(`/api/orders/list?tenant_id=${user.tenant_id}&branch_id=${user.branch_id}&date=${today}&limit=100`)
+      const ordersData = await ordersRes.json()
+      setOrderHistory(ordersData.success ? ordersData.data.orders : [])
       
       // Load held orders from localStorage
       const held = localStorage.getItem(`pos_held_orders_${user.branch_id}`)
