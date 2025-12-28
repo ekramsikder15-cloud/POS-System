@@ -155,27 +155,27 @@ backend:
 
   - task: "Orders List API"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/api/orders/list/route.js"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
-      - working: "NA"
+      - working: true
         agent: "main"
-        comment: "Implemented but not tested yet"
+        comment: "Tested via curl and kitchen page. Fixed caching issue with fresh Supabase client per request."
 
   - task: "Orders Update API"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/api/orders/[id]/route.js"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
-      - working: "NA"
+      - working: true
         agent: "main"
-        comment: "PATCH for status updates implemented but not tested"
+        comment: "PATCH for status updates working. Added QSR simplified flow (pending->preparing directly)."
 
   - task: "Admin Stats API"
     implemented: true
