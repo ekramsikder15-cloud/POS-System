@@ -318,46 +318,35 @@ export default function KitchenPage() {
     }
     
     try {
-      const total = selectedItems.reduce((sum, item) => sum + (item.base_price * item.quantity), 0)
-      const orderId = uuidv4()
-      
-      // Create order with correct schema
-      const orderData = {
-        id: orderId,
-        tenant_id: user.tenant_id,
-        branch_id: user.branch_id,
-        order_number: generateOrderNumber(),
-        channel: 'pos',
-        order_type: orderType,
-        status: 'pending',
-        payment_status: 'paid',
-        customer_name: customerName || null,
-        subtotal: total,
-        tax_amount: 0,
-        service_charge: 0,
-        total_amount: total,
-        user_id: user.id,
-        notes: specialInstructions || null
-      }
-      
-      const { error: orderError } = await supabase.from('orders').insert(orderData)
-      if (orderError) throw orderError
-      
-      // Create order items
-      const orderItems = selectedItems.map((item) => ({
-        id: uuidv4(),
-        order_id: orderId,
+      // Build items array for API
+      const orderItems = selectedItems.map(item => ({
         item_id: item.id,
-        item_name_en: item.name_en,
-        item_name_ar: item.name_ar || '',
         quantity: item.quantity,
-        unit_price: item.base_price,
-        total_price: item.base_price * item.quantity
+        modifiers: [],
+        notes: null
       }))
       
-      const { error: itemsError } = await supabase.from('order_items').insert(orderItems)
-      if (itemsError) {
-        console.error('Order items error:', itemsError)
+      // Call create order API
+      const response = await fetch('/api/orders/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tenant_id: user.tenant_id,
+          branch_id: user.branch_id,
+          order_type: orderType,
+          channel: 'pos',
+          items: orderItems,
+          customer_name: customerName || null,
+          payment_method: 'cash',
+          user_id: user.id,
+          notes: specialInstructions || null
+        })
+      })
+      
+      const data = await response.json()
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to create order')
       }
       
       toast.success('Order created successfully!')
