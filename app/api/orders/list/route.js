@@ -85,8 +85,6 @@ export async function GET(request) {
     
     const { data: orders, error, count } = await query
     
-    console.log('Query result count:', orders?.length, 'Statuses:', orders?.map(o => o.status))
-    
     if (error) throw error
     
     // Include order items if requested
