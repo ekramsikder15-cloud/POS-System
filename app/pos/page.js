@@ -10,12 +10,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
-import { v4 as uuidv4 } from 'uuid'
 import {
   Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, Banknote,
   User, LogOut, Clock, Pause, Play, X, Check, Printer,
   UtensilsCrossed, Package, Bike, ChefHat
 } from 'lucide-react'
+import { v4 as uuidv4 } from 'uuid' // Still used for cart item IDs
 
 // Order types
 const ORDER_TYPES = [
@@ -27,14 +27,6 @@ const ORDER_TYPES = [
 // Format price in KWD (3 decimals)
 const formatPrice = (price, currency = 'KWD') => {
   return Number(price || 0).toFixed(3) + ' ' + currency
-}
-
-// Generate order number
-const generateOrderNumber = () => {
-  const date = new Date()
-  const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '')
-  const seq = String(Math.floor(Math.random() * 999) + 1).padStart(3, '0')
-  return `ORD-${dateStr}-${seq}`
 }
 
 // Format date for receipt
