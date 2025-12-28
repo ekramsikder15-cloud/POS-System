@@ -12,7 +12,6 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Slider } from '@/components/ui/slider'
 import { toast } from 'sonner'
-import { v4 as uuidv4 } from 'uuid'
 import {
   ChefHat, Clock, Check, AlertCircle, RefreshCw, LogOut, User,
   UtensilsCrossed, Package, Bike, Volume2, VolumeX, Plus, Search, X,
