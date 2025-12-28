@@ -1069,7 +1069,7 @@ export default function POSPage() {
       <Dialog open={historyModalOpen} onOpenChange={setHistoryModalOpen}>
         <DialogContent className="max-w-2xl max-h-[80vh]">
           <DialogHeader>
-            <DialogTitle className="text-[#1e3a5f]">Today's Orders</DialogTitle>
+            <DialogTitle className="text-[#1e3a5f]">Today&apos;s Orders</DialogTitle>
           </DialogHeader>
           <ScrollArea className="h-[60vh]">
             <div className="space-y-3">
