@@ -1,9 +1,11 @@
 import { supabaseAdmin, apiResponse, isValidUUID, createAuditLog } from '@/lib/supabase-admin'
 import { v4 as uuidv4 } from 'uuid'
 
-// Valid order status transitions
+// Valid order status transitions (QSR simplified flow)
+// pending -> preparing -> ready -> completed
+// Or pending -> accepted -> preparing -> ready -> dispatched -> delivered -> completed (full delivery flow)
 const STATUS_TRANSITIONS = {
-  pending: ['accepted', 'cancelled'],
+  pending: ['accepted', 'preparing', 'cancelled'], // Allow direct to preparing for QSR
   accepted: ['preparing', 'cancelled'],
   preparing: ['ready', 'cancelled'],
   ready: ['dispatched', 'completed', 'cancelled'],
