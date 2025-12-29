@@ -305,6 +305,7 @@ export default function POSPage() {
     setCustomerName('')
     setCustomerPhone('')
     setAmountReceived('')
+    setAggregator('')
   }
   
   // Open payment modal
