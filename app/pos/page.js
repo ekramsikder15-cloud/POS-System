@@ -333,6 +333,9 @@ export default function POSPage() {
         notes: c.specialInstructions || null
       }))
       
+      // Determine channel based on aggregator
+      const channel = aggregator || 'pos'
+      
       // Call create order API
       const response = await fetch('/api/orders/create', {
         method: 'POST',
@@ -341,7 +344,8 @@ export default function POSPage() {
           tenant_id: user.tenant_id,
           branch_id: user.branch_id,
           order_type: orderType,
-          channel: 'pos',
+          channel: channel,
+          aggregator: aggregator || null,
           items: orderItems,
           customer_name: customerName || null,
           customer_phone: customerPhone || null,
