@@ -382,6 +382,7 @@ export default function POSPage() {
           special_instructions: c.specialInstructions
         })),
         total: total,
+        aggregator: aggregator || null,
         payment_method: paymentMethod,
         amount_received: paymentMethod === 'cash' ? parseFloat(amountReceived) || total : total,
         change_amount: paymentMethod === 'cash' ? Math.max(0, (parseFloat(amountReceived) || 0) - total) : 0,
