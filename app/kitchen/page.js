@@ -15,7 +15,7 @@ import { toast } from 'sonner'
 import {
   ChefHat, Clock, Check, AlertCircle, RefreshCw, LogOut, User,
   UtensilsCrossed, Package, Bike, Volume2, VolumeX, Plus, Search, X,
-  Settings, Bell, Play
+  Settings, Bell, Play, Store
 } from 'lucide-react'
 
 // Order types
@@ -23,6 +23,16 @@ const ORDER_TYPES = {
   qsr: { label: 'Dine In', icon: UtensilsCrossed, color: 'bg-blue-100 text-blue-700' },
   takeaway: { label: 'Takeaway', icon: Package, color: 'bg-purple-100 text-purple-700' },
   delivery: { label: 'Delivery', icon: Bike, color: 'bg-green-100 text-green-700' }
+}
+
+// Aggregators / Channels
+const AGGREGATORS = {
+  pos: { label: 'POS', color: 'bg-gray-100 text-gray-700' },
+  talabat: { label: 'Talabat', color: 'bg-orange-100 text-orange-700' },
+  deliveroo: { label: 'Deliveroo', color: 'bg-teal-100 text-teal-700' },
+  careem: { label: 'Careem NOW', color: 'bg-green-100 text-green-700' },
+  website: { label: 'Website', color: 'bg-blue-100 text-blue-700' },
+  mobile: { label: 'Mobile App', color: 'bg-indigo-100 text-indigo-700' }
 }
 
 // Notification sounds
