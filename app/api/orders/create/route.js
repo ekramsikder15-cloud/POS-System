@@ -10,7 +10,8 @@ export async function POST(request) {
       tenant_id,
       branch_id,
       order_type,         // qsr, takeaway, delivery, dine_in
-      channel,            // pos, website, mobile, talabat, etc.
+      channel,            // pos, website, mobile, talabat, deliveroo, careem, etc.
+      aggregator,         // talabat, deliveroo, careem (optional, for orders from aggregators)
       items,              // Array of { item_id, variant_id?, quantity, modifiers: [{id, price}], notes? }
       customer_id,
       customer_name,
