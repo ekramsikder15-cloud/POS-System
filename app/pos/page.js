@@ -13,7 +13,7 @@ import { toast } from 'sonner'
 import {
   Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, Banknote,
   User, LogOut, Clock, Pause, Play, X, Check, Printer,
-  UtensilsCrossed, Package, Bike, ChefHat
+  UtensilsCrossed, Package, Bike, ChefHat, Store
 } from 'lucide-react'
 import { v4 as uuidv4 } from 'uuid' // Still used for cart item IDs
 
@@ -22,6 +22,14 @@ const ORDER_TYPES = [
   { id: 'qsr', label: 'Dine In', icon: UtensilsCrossed },
   { id: 'takeaway', label: 'Takeaway', icon: Package },
   { id: 'delivery', label: 'Delivery', icon: Bike }
+]
+
+// Aggregators (optional selection for orders)
+const AGGREGATORS = [
+  { id: '', label: 'None (Manual)', color: 'bg-gray-100 text-gray-700' },
+  { id: 'talabat', label: 'Talabat', color: 'bg-orange-100 text-orange-700' },
+  { id: 'deliveroo', label: 'Deliveroo', color: 'bg-teal-100 text-teal-700' },
+  { id: 'careem', label: 'Careem NOW', color: 'bg-green-100 text-green-700' }
 ]
 
 // Format price in KWD (3 decimals)
