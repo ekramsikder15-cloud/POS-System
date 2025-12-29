@@ -892,6 +892,36 @@ export default function POSPage() {
               </div>
             </div>
             
+            {/* Aggregator Selection (Optional) */}
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-2 block">
+                <Store className="w-4 h-4 inline mr-1" />
+                Order Source (Optional)
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {AGGREGATORS.map(agg => (
+                  <Button
+                    key={agg.id}
+                    variant="outline"
+                    className={`h-11 text-sm ${
+                      aggregator === agg.id
+                        ? agg.id === '' 
+                          ? 'bg-gray-100 border-gray-400 text-gray-700'
+                          : agg.id === 'talabat'
+                            ? 'bg-orange-100 border-orange-400 text-orange-700'
+                            : agg.id === 'deliveroo'
+                              ? 'bg-teal-100 border-teal-400 text-teal-700'
+                              : 'bg-green-100 border-green-400 text-green-700'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                    onClick={() => setAggregator(agg.id)}
+                  >
+                    {agg.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            
             {/* Payment Method */}
             <div>
               <label className="text-sm font-medium text-gray-700 mb-2 block">Payment Method</label>
