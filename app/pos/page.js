@@ -67,6 +67,7 @@ export default function POSPage() {
   
   // Order state
   const [orderType, setOrderType] = useState('qsr')
+  const [aggregator, setAggregator] = useState('') // Optional aggregator
   const [cart, setCart] = useState([])
   const [heldOrders, setHeldOrders] = useState([])
   const [orderHistory, setOrderHistory] = useState([])
